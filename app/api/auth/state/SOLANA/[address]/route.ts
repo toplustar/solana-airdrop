@@ -33,8 +33,8 @@ export async function POST(
       );
     }
 
-    const data = await response.text();
-    return NextResponse.json({ state: data });
+    const state = await response.text();
+    return NextResponse.json(state);
   } catch (error) {
     console.error('Error in Solana state route:', error);
     return NextResponse.json(

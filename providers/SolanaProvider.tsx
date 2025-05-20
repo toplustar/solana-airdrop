@@ -8,7 +8,6 @@ import { WalletAdapterNetwork } from "@solana/wallet-adapter-base"
 import { clusterApiUrl } from "@solana/web3.js"
 import bs58 from "bs58"
 
-// Import wallet adapter styles
 import "@solana/wallet-adapter-react-ui/styles.css"
 
 interface SolanaProviderProps {
@@ -27,35 +26,6 @@ const WalletConnectionListener: FC = () => {
       })
       const sessionData = await session.json()
       console.log("🔹 sessionData:", sessionData);
-
-      const res = await fetch(`/api/auth/state/SOLANA/${publicKey.toBase58()}`, {
-        method: 'POST',
-      })
-      const data1 = await res.json()
-      console.log(data1)
-
-      const iat = Math.floor(Date.now() / 1000);
-      const state = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-
-      const authMessage = `By signing this message, I confirm that I have read and accepted the Terms and Conditions at https://strm.me/tos, Privacy Policy at https://strm.me/pp and Restricted Countries or Regions Policy at https://strm.me/restricted.
-
-This request will not trigger a blockchain transaction or cost any gas fees.
-
-iat: ${iat}
-state: ${state}`;
-
-    const encodedMessage = new TextEncoder().encode(authMessage);
-    const signature = await signMessage(encodedMessage);
-    const signatureBase58 = bs58.encode(signature);
-
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({chain: "SOLANA", walletAddress: publicKey.toBase58(), signature: signatureBase58, authMessage, referral: null })
-    })
-
-    const data = await response.json()
-
-    console.log(data)
   }
   loginToStreamflow()
 }, [connected, publicKey, signMessage]);

@@ -19,8 +19,7 @@ import { cn } from "@/lib/utils"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useAirdrop } from "@/contexts/airdrop-context"
 import WalletNotConnected from "@/components/wallet-not-connected"
-import { getSolanaConnection } from "@/lib/solana-wallet"
-import type { Connection, PublicKey } from "@solana/web3.js"
+import { Connection, clusterApiUrl, PublicKey,type GetVersionedTransactionConfig } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token"
 import { getTokenMetadata } from "@/lib/token-utils"
 import Image from "next/image"
@@ -77,7 +76,7 @@ export default function ConfigurationPage() {
       setTokenError(null)
 
       try {
-        const connection = getSolanaConnection("devnet")
+        const connection = new Connection(clusterApiUrl("devnet"))
 
         // Get SOL balance and price
         const [solBalance, solPriceResponse] = await Promise.all([

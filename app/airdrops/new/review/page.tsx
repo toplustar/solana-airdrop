@@ -18,6 +18,8 @@ import { BN } from "bn.js";
 import { getTokenMetadata } from "@/lib/token-utils";
 import { calculateCSVTotals } from "@/lib/merkle-utils";
 import Image from "next/image";
+import { useStreamflowAuth } from "@/hooks/use-streamflow-auth"
+import { useToast } from "@/components/ui/use-toast"
 
 interface TokenMetadata {
   symbol: string
@@ -36,14 +38,14 @@ export default function ReviewPage() {
   const [tokenMetadata, setTokenMetadata] = useState<TokenMetadata | null>(null)
   const [totalAmount, setTotalAmount] = useState<number>(0)
   const [recipientCount, setRecipientCount] = useState<number>(0)
-
+  const { loginToStreamflow } = useStreamflowAuth()
+  const { toast } = useToast()
 
   useEffect(() => {
     setIsClient(true)
   }, [])
 
   useEffect(() => {
-
     const calculateTotals = async () => {
       if (airdropData.file) {
         const totals = await calculateCSVTotals(airdropData.file, airdropData.tokenDecimals);
@@ -69,6 +71,30 @@ export default function ReviewPage() {
       if (!publicKey || !airdropData.file) {
         throw new Error("Wallet not connected or file not uploaded")
       }
+
+
+      const isAuthenticated = await loginToStreamflow()
+      if (!isAuthenticated) {
+        throw new Error("Authentication failed")
+      }
+
+      const session = await fetch('/api/auth/session', {
+        method: 'GET',
+      })
+
+      const formData = new FormData();
+      formData.append('mint', airdropData.token);
+      formData.append('name', airdropData.title);
+      formData.append('file', airdropData.file);
+
+      const res = await fetch("/api/airdrops", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      console.log(data, "data")
+
 
       const totals = await calculateCSVTotals(airdropData.file, airdropData.tokenDecimals);
       const maxNumNodes = new BN(totals.maxNodes.toString());
@@ -103,18 +129,7 @@ export default function ReviewPage() {
 
       const clawbackStartTs = currentTimestamp + (30 * 60);
 
-      const formData = new FormData();
-      formData.append('mint', airdropData.token);
-      formData.append('name', airdropData.title);
-      formData.append('file', airdropData.file);
-
-      const res = await fetch("/api/airdrops", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      console.log(data, "data")
+      
 
       // const res = await client.create(
       //   {
