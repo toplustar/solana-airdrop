@@ -13,7 +13,6 @@ interface AirdropData {
   startUponCreation: boolean
   cancellable: boolean
   claimOnce: boolean
-  // Add new vesting configuration fields
   distributionEndDate: Date | null
   distributionEndTime: string
   distributerStartTime: Date | null
@@ -38,7 +37,6 @@ const defaultAirdropData: AirdropData = {
   startUponCreation: true,
   cancellable: false,
   claimOnce: true,
-  // Initialize new vesting configuration fields
   distributionEndDate: null,
   distributionEndTime: "12:00",
   distributerStartTime: null,

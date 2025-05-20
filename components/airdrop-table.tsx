@@ -27,43 +27,43 @@ export default function AirdropTable() {
   const [isDistributorLoading, setIsDistributorLoading] = useState(true)
 
   useEffect(() => {
-      const fetchAirdrops = async () => {
-        try {
-          const response = await fetch('/api/airdrops/search', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(
-              {
-                "actor": publicKey?.toBase58(),
-                "limit": 50,
-                "offset": 0,
-                "filters": {
-                    "include": {
-                        "isOnChain": true,
-                        "sender": [
-                            publicKey?.toBase58()
-                        ]
-                    }
-                },
-                "sorters": [
-                    {
-                        "by": "id",
-                        "order": "desc"
-                    }
-                ]
+    const fetchAirdrops = async () => {
+      try {
+        const response = await fetch('/api/airdrops/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(
+            {
+              "actor": publicKey?.toBase58(),
+              "limit": 50,
+              "offset": 0,
+              "filters": {
+                "include": {
+                  "isOnChain": true,
+                  "sender": [
+                    publicKey?.toBase58()
+                  ]
+                }
+              },
+              "sorters": [
+                {
+                  "by": "id",
+                  "order": "desc"
+                }
+              ]
             }
-             )
-          })
-          const data = await response.json()
-          setAirdrops(data.items)
-          setTotalAirdrops(data.total)
-        } catch (error) {
-          console.error('Error fetching airdrops:', error)
-        }
+          )
+        })
+        const data = await response.json()
+        setAirdrops(data.items)
+        setTotalAirdrops(data.total)
+      } catch (error) {
+        console.error('Error fetching airdrops:', error)
       }
-      fetchAirdrops()
+    }
+    fetchAirdrops()
   }, [])
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function AirdropTable() {
       await Promise.all(distributorPromises || [])
       setIsDistributorLoading(false)
     }
-    
+
     const fetchAllMetadata = async () => {
       setIsMetadataLoading(true)
       const metadataPromises = airdrops?.map(async (airdrop) => {
@@ -203,13 +203,13 @@ export default function AirdropTable() {
                 </div>
               </TableCell>
               <TableCell>
-                {distributor[airdrop.address] ? 
+                {distributor[airdrop.address] ?
                   `${distributor[airdrop.address].numNodesClaimed || 0}/${airdrop.maxNumNodes}` :
                   'Loading...'
                 }
               </TableCell>
               <TableCell>
-                {distributor[airdrop.address] && tokenMetadata[airdrop.mint] ? 
+                {distributor[airdrop.address] && tokenMetadata[airdrop.mint] ?
                   `${(distributor[airdrop.address].totalAmountClaimed / Math.pow(10, tokenMetadata[airdrop.mint].decimals || 9)).toFixed(2)} / 
                    ${(Number(airdrop.maxTotalClaim) / Math.pow(10, tokenMetadata[airdrop.mint].decimals || 9)).toFixed(2)} 
                    ${tokenMetadata[airdrop.mint].symbol}` :

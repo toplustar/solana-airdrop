@@ -18,61 +18,51 @@ interface SolanaProviderProps {
 const WalletConnectionListener: FC = () => {
   const { connected, publicKey, signMessage } = useWallet();
 
-//   useEffect(() => {
-//     const loginToStreamflow = async () => {
-//       if (!connected || !publicKey || !signMessage) return;
+  useEffect(() => {
+    const loginToStreamflow = async () => {
+      if (!connected || !publicKey || !signMessage) return;
 
-//       const iat = Math.floor(Date.now() / 1000);
-//       const state = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+      const session = await fetch('/api/auth/session', {
+        method: 'GET',
+      })
+      const sessionData = await session.json()
+      console.log("🔹 sessionData:", sessionData);
 
-//       const authMessage = `By signing this message, I confirm that I have read and accepted the Terms and Conditions at https://strm.me/tos, Privacy Policy at https://strm.me/pp and Restricted Countries or Regions Policy at https://strm.me/restricted.
+      const res = await fetch(`/api/auth/state/SOLANA/${publicKey.toBase58()}`, {
+        method: 'POST',
+      })
+      const data1 = await res.json()
+      console.log(data1)
 
-// This request will not trigger a blockchain transaction or cost any gas fees.
+      const iat = Math.floor(Date.now() / 1000);
+      const state = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
-// iat: ${iat}
-// state: ${state}`;
+      const authMessage = `By signing this message, I confirm that I have read and accepted the Terms and Conditions at https://strm.me/tos, Privacy Policy at https://strm.me/pp and Restricted Countries or Regions Policy at https://strm.me/restricted.
 
-//       try {
-//         const encodedMessage = new TextEncoder().encode(authMessage);
-//         const signature = await signMessage(encodedMessage);
-//         const signatureBase58 = bs58.encode(signature);
+This request will not trigger a blockchain transaction or cost any gas fees.
 
-//         const res = await fetch("/api/auth/login", {
-//           method: "POST",
-//           headers: {
-//             "Content-Type": "application/json",
-//           },
-//           credentials: "include",
-//           body: JSON.stringify({
-//             chain: "SOLANA",
-//             walletAddress: publicKey.toBase58(),
-//             signature: signatureBase58,
-//             authMessage,
-//             referral: "",
-//           }),
-//         });
+iat: ${iat}
+state: ${state}`;
 
-//         const loginResult = await res.json();
-//         console.log("✅ Streamflow login result:", loginResult);
+    const encodedMessage = new TextEncoder().encode(authMessage);
+    const signature = await signMessage(encodedMessage);
+    const signatureBase58 = bs58.encode(signature);
 
-//         const sessionRes = await fetch("/api/auth/session", {
-//           method: "GET",
-//           credentials: "include",
-//         });
-//         const sessionData = await sessionRes.json();
-//         console.log("🔑 Streamflow session:", sessionData);
-//       } catch (error) {
-//         console.error("❌ Error during Streamflow login:", error);
-//       }
-//     };
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({chain: "SOLANA", walletAddress: publicKey.toBase58(), signature: signatureBase58, authMessage, referral: null })
+    })
 
-//     loginToStreamflow();
-//   }, [connected, publicKey, signMessage]);
+    const data = await response.json()
+
+    console.log(data)
+  }
+  loginToStreamflow()
+}, [connected, publicKey, signMessage]);
 
   return null;
-};
 
-
+}
 
 const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
   const network = WalletAdapterNetwork.Devnet

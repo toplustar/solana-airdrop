@@ -31,14 +31,14 @@ export default function AirdropsPage() {
   return (
     <div className="container py-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-          <AirdropSearch />
-          {mounted && connected ? (
-            <Button asChild>
-              <Link href="/airdrops/new/type">Create New</Link>
-            </Button>
-          ) : mounted ? (
-            <></>
-          ) : null}
+        <AirdropSearch />
+        {mounted && connected ? (
+          <Button asChild>
+            <Link href="/airdrops/new/type">Create New</Link>
+          </Button>
+        ) : mounted ? (
+          <></>
+        ) : null}
       </div>
 
       {mounted && connected ? (
@@ -50,9 +50,9 @@ export default function AirdropsPage() {
             </TabsList>
           </Tabs>
           {tab === "claimable" ? (
-            <ClaimTable/>
+            <ClaimTable />
           ) : (
-            <AirdropTable/>
+            <AirdropTable />
           )}
         </>
       ) : (

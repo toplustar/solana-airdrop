@@ -44,7 +44,7 @@ export default function AirdropDetailPage() {
       setLoading(false)
     }
   }, [airdropData])
-  
+
   const fetchAirdropData = async () => {
     const response = await fetch(`/api/airdrops/${airdropId}`)
     const data = await response.json()
@@ -62,7 +62,7 @@ export default function AirdropDetailPage() {
     const response = await getDistributor(airdropData.address)
     setDistributor(response)
   }
- 
+
   const isLoading = loading || !tokenMetadata || !distributor || !airdropData;
 
   if (isLoading) {
@@ -137,14 +137,14 @@ export default function AirdropDetailPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-              {tokenMetadata?.image ? 
-                <Image 
-                    src={tokenMetadata.image} 
-                    alt={tokenMetadata.symbol} 
-                    width={32} 
-                    height={32} 
-                    className="rounded-full"
-                /> : 
+              {tokenMetadata?.image ?
+                <Image
+                  src={tokenMetadata.image}
+                  alt={tokenMetadata.symbol}
+                  width={32}
+                  height={32}
+                  className="rounded-full"
+                /> :
                 <span className="text-sm">?</span>}
             </div>
             <h1 className="text-2xl font-bold">{tokenMetadata?.name}</h1>
@@ -201,7 +201,7 @@ export default function AirdropDetailPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground">Recipients Claimed / Total</div>
             <div className="text-2xl font-bold mt-1">
-               {distributor?.numNodesClaimed} / {airdropData?.maxNumNodes}
+              {distributor?.numNodesClaimed} / {airdropData?.maxNumNodes}
             </div>
           </CardContent>
         </Card>
@@ -215,53 +215,6 @@ export default function AirdropDetailPage() {
           </CardContent>
         </Card>
       </div>
-
-     
-      {/* {mounted && connected ? (
-        <div className="rounded-md border p-4">
-          <h2 className="text-lg font-medium mb-4">Your Allocation</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-            <div>
-              <div className="text-sm text-muted-foreground">Amount</div>
-              <div className="font-medium">{airdrop.userAllocation.amount}</div>
-            </div>
-
-            <div className="md:col-span-2">
-              <div className="text-sm text-muted-foreground">Wallet</div>
-              <div className="font-medium">{airdrop.userAllocation.walletAddress}</div>
-            </div>
-
-            <div>
-              <div className="text-sm text-muted-foreground">Explorer</div>
-              <Link href="#" className="text-primary flex items-center hover:underline">
-                View
-                <ExternalLink className="ml-1 h-3 w-3" />
-              </Link>
-            </div>
-
-            <div>
-              <div className="text-sm text-muted-foreground">Claim Date</div>
-              <div className="font-medium">{airdrop.userAllocation.claimDate}</div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Badge variant="outline">{airdrop.userAllocation.status}</Badge>
-              <Button size="sm" className="ml-auto">
-                Claim
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : mounted ? (
-        <div className="rounded-md border p-6 text-center">
-          <h2 className="text-lg font-medium mb-2">Connect your wallet to view your allocation</h2>
-          <p className="text-muted-foreground mb-4">
-            You need to connect your wallet to see if you have an allocation in this airdrop.
-          </p>
-          <ConnectWalletButton className="mx-auto" />
-        </div>
-      ) : null} */}
     </div>
   )
 }

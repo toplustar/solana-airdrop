@@ -31,7 +31,7 @@ export default function ConnectWalletButton({ className }: ConnectWalletButtonPr
       variant="default"
       size="sm"
     >
-      { connecting ? (
+      {connecting ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Connecting...

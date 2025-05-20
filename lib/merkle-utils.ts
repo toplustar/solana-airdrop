@@ -11,15 +11,13 @@ export class MerkleTree {
   private readonly layers: Buffer[][]
 
   constructor(recipients: Recipient[]) {
-    // Sort recipients by address to ensure consistent tree generation
     const sortedRecipients = recipients.sort((a, b) => a.address.localeCompare(b.address))
-    
-    // Create leaves from recipient data
+ 
     this.leaves = sortedRecipients.map((recipient) => {
       const pubKey = new PublicKey(recipient.address)
       const amount = BigInt(recipient.amount)
       
-      // Concatenate public key bytes and amount
+
       const concatenated = Buffer.concat([
         pubKey.toBuffer(),
         Buffer.from(amount.toString(16).padStart(16, '0'), 'hex')
@@ -28,14 +26,12 @@ export class MerkleTree {
       return Buffer.from(keccak_256.digest(concatenated))
     })
 
-    // Build the Merkle tree
     this.layers = this.buildLayers(this.leaves)
   }
 
   private buildLayers(leaves: Buffer[]): Buffer[][] {
     const layers: Buffer[][] = [leaves]
-    
-    // Build tree layers until we reach the root
+   
     while (layers[0].length > 1) {
       const layer: Buffer[] = []
       
@@ -104,8 +100,8 @@ export async function calculateCSVTotals(file: File, tokenDecimals: number): Pro
   const text = await file.text();
   const rows = text
     .split('\n')
-    .filter(row => row.trim()) // Filter out empty rows
-    .slice(1); // Skip header row
+    .filter(row => row.trim()) 
+    .slice(1); 
     
   const recipients: Recipient[] = rows.map(row => {
     const [address, amount] = row.split(',');

@@ -40,7 +40,7 @@ export default function Header() {
             Devnet
           </Badge>
 
-          
+
           <div className="flex items-center">
             {connected && publicKey ? (
               <DropdownMenu>
@@ -58,7 +58,7 @@ export default function Header() {
               <ConnectWalletButton />
             )}
           </div>
-          
+
         </div>
       </div>
     </header>

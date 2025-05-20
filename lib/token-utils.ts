@@ -140,12 +140,6 @@ export async function getTokenMetadata(mintAddressString: string) {
 //     }
   
 //     const asset = result.result;
-    
-//       console.log("✅ Token Info via Helius:");
-//       console.log("Name:", asset.content?.metadata?.name ?? "N/A");
-//       console.log("Symbol:", asset.content?.metadata?.symbol ?? "N/A");
-//       console.log("Image URL:", asset.content?.links?.image ?? "N/A");
-//       console.log("Decimals:", asset.token_info?.decimals ?? "N/A");
 
 //     return {
 //         decimals: asset.token_info?.decimals ?? 9,

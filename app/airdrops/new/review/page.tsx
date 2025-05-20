@@ -43,21 +43,21 @@ export default function ReviewPage() {
   }, [])
 
   useEffect(() => {
-       
-      const calculateTotals = async () => {
-        if (airdropData.file) {
-          const totals = await calculateCSVTotals(airdropData.file, airdropData.tokenDecimals);
-          setTotalAmount(totals.totalAmount/Math.pow(10, airdropData.tokenDecimals));
-          setRecipientCount(totals.maxNodes);
-          const metadata = await getTokenMetadata(airdropData.token)
-          setTokenMetadata(metadata)
-        }
+
+    const calculateTotals = async () => {
+      if (airdropData.file) {
+        const totals = await calculateCSVTotals(airdropData.file, airdropData.tokenDecimals);
+        setTotalAmount(totals.totalAmount / Math.pow(10, airdropData.tokenDecimals));
+        setRecipientCount(totals.maxNodes);
+        const metadata = await getTokenMetadata(airdropData.token)
+        setTokenMetadata(metadata)
       }
-      calculateTotals();
-        
-      if (!airdropData.file) {
-        router.push("/airdrops/new/recipients")
-      }
+    }
+    calculateTotals();
+
+    if (!airdropData.file) {
+      router.push("/airdrops/new/recipients")
+    }
   }, [airdropData.file, airdropData.token, router])
 
   if (!isClient) return null
@@ -86,16 +86,16 @@ export default function ReviewPage() {
       });
 
       const currentTimestamp = Math.floor(Date.now() / 1000);
-      
+
       const startVestingTs = currentTimestamp + (5 * 60);
-      
-      let endVestingTs =currentTimestamp + (60 * 60);;
+
+      let endVestingTs = currentTimestamp + (60 * 60);;
       if (airdropData.type === "vested" && airdropData.distributionEndDate) {
         const [hours, minutes] = airdropData.distributionEndTime.split(':');
         const endDate = new Date(airdropData.distributionEndDate);
         endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
         endVestingTs = Math.floor(endDate.getTime() / 1000);
-        
+
         if (endVestingTs <= startVestingTs) {
           throw new Error("Distribution end time must be after start time");
         }
@@ -103,14 +103,18 @@ export default function ReviewPage() {
 
       const clawbackStartTs = currentTimestamp + (30 * 60);
 
-      const res = await fetch("/api/airdrop", {
+      const formData = new FormData();
+      formData.append('mint', airdropData.token);
+      formData.append('name', airdropData.title);
+      formData.append('file', airdropData.file);
+
+      const res = await fetch("/api/airdrops", {
         method: "POST",
-        body: JSON.stringify({
-          mint: airdropData.token,
-          name: airdropData.title,
-          file: airdropData.file,
-        }),
+        body: formData,
       });
+
+      const data = await res.json();
+      console.log(data, "data")
 
       // const res = await client.create(
       //   {
@@ -134,9 +138,9 @@ export default function ReviewPage() {
       console.log("Airdrop created:", res);
 
       if (!res) {
-       return
+        return
       }
-      
+
       resetAirdropData()
       router.push("/airdrops?tab=created")
 
@@ -219,7 +223,7 @@ export default function ReviewPage() {
               <h3 className="text-sm font-medium text-muted-foreground mb-1">Total Amount</h3>
               <div className="flex items-center gap-2">
                 <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs">
-                   {tokenMetadata?.icon ? <Image src={tokenMetadata.icon} alt={tokenMetadata.symbol} width={20} height={20} /> : tokenMetadata?.symbol.charAt(0).toUpperCase()}
+                  {tokenMetadata?.icon ? <Image src={tokenMetadata.icon} alt={tokenMetadata.symbol} width={20} height={20} /> : tokenMetadata?.symbol.charAt(0).toUpperCase()}
                 </div>
                 <p className="font-medium">{totalAmount} {tokenMetadata?.symbol}</p>
               </div>

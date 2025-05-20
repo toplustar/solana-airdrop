@@ -16,7 +16,6 @@ export async function searchDistributeStream( address: string) {
 
 
 export async function getDistributor(id: string) {
-
   const distributors = await client.getDistributors({ ids: [id] });
   const distributor = distributors[0];
   return {
@@ -29,12 +28,12 @@ export async function getDistributor(id: string) {
   }
 }
 
-export async function getProof(distributorAddress: string, claimAddress: string) {
-  const response = await fetch(
-    `/api/airdrops/proof?distributorAddress=${distributorAddress}&claimAddress=${claimAddress}`
-  )
-  if (!response.ok) {
-    throw new Error('Failed to fetch proof')
-  }
-  return response.json()
+export async function getClaims(recipient: string, id: string) {
+  const claims = await client.getClaims([{
+    id: id,
+    recipient: recipient,
+  }]);
+  console.log("🔹 claims:", claims);
+  return claims;
 }
+

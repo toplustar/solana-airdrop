@@ -9,12 +9,12 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useEffect, useState } from "react"
 import { getTokenMetadata } from "../lib/token-utils"
 import Image from "next/image"
-import { getDistributor} from "../lib/streamflow-client"
+import { getDistributor } from "../lib/streamflow-client"
 import { TokenMetadata, DistributorInfo } from "@/types/metadata"
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 import { Button } from "@/components/ui/button"
 import { AirdropItem } from "@/types/airdrop"
-
+import { getClaims } from "../lib/streamflow-client"
 export default function UnconnectedState() {
   const router = useRouter()
   const { connected } = useWallet()
@@ -24,7 +24,7 @@ export default function UnconnectedState() {
   const [tokenMetadata, setTokenMetadata] = useState<Record<string, TokenMetadata>>({})
   const [distributor, setDistributor] = useState<Record<string, DistributorInfo>>({})
   const [currentPage, setCurrentPage] = useState(1)
-  
+
 
   useEffect(() => {
     if (!connected) {
@@ -40,18 +40,18 @@ export default function UnconnectedState() {
               "limit": 10,
               "offset": (currentPage - 1) * 10,
               "filters": {
-                  "include": {
-                      "isOnChain": true,
-                      "isActive": true
-                  }
+                "include": {
+                  "isOnChain": true,
+                  "isActive": true
+                }
               },
               "sorters": [
-                  {
-                      "by": "id",
-                      "order": "desc"
-                  }
+                {
+                  "by": "id",
+                  "order": "desc"
+                }
               ]
-          })
+            })
         })
         const data = await response.json()
         setAirdrops(data.items)
@@ -81,20 +81,20 @@ export default function UnconnectedState() {
   }, [airdrops])
 
 
- const fetchDistributor = async () => {
-  const distributorPromises = airdrops?.map(async (airdrop) => {
-    try {
-      const distributor = await getDistributor(airdrop.address)
-      setDistributor(prev => ({
-        ...prev,
-        [airdrop.address]: distributor
-      }))
-    } catch (error) {
-      console.error(`Error fetching distributor for ${airdrop.address}:`, error)
-    }
-  })
-  await Promise.all(distributorPromises || [])
-}
+  const fetchDistributor = async () => {
+    const distributorPromises = airdrops?.map(async (airdrop) => {
+      try {
+        const distributor = await getDistributor(airdrop.address)
+        setDistributor(prev => ({
+          ...prev,
+          [airdrop.address]: distributor
+        }))
+      } catch (error) {
+        console.error(`Error fetching distributor for ${airdrop.address}:`, error)
+      }
+    })
+    await Promise.all(distributorPromises || [])
+  }
 
 
   const fetchAllMetadata = async () => {
@@ -139,7 +139,7 @@ export default function UnconnectedState() {
       <Pagination className="mt-4">
         <PaginationContent>
           <PaginationItem>
-            <Button 
+            <Button
               onClick={handlePreviousPage}
               disabled={currentPage === 1}
               variant="outline"
@@ -149,7 +149,7 @@ export default function UnconnectedState() {
             </Button>
           </PaginationItem>
           <PaginationItem>
-            <Button 
+            <Button
               onClick={handleNextPage}
               disabled={totalAirdrops <= currentPage * 10}
               variant="outline"
@@ -248,13 +248,13 @@ export default function UnconnectedState() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {distributor[airdrop.address] ? 
+                  {distributor[airdrop.address] ?
                     `${distributor[airdrop.address].numNodesClaimed || 0}/${airdrop.maxNumNodes}` :
                     'Loading...'
                   }
                 </TableCell>
                 <TableCell>
-                  {distributor[airdrop.address] && tokenMetadata[airdrop.mint] ? 
+                  {distributor[airdrop.address] && tokenMetadata[airdrop.mint] ?
                     `${(distributor[airdrop.address].totalAmountClaimed / Math.pow(10, tokenMetadata[airdrop.mint].decimals || 9)).toFixed(2)} / 
                      ${(Number(airdrop.maxTotalClaim) / Math.pow(10, tokenMetadata[airdrop.mint].decimals || 9)).toFixed(2)} 
                      ${tokenMetadata[airdrop.mint].symbol}` :
