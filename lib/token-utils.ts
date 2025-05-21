@@ -23,13 +23,39 @@ export async function getTokenMetadata(mintAddressString: string) {
     const metadata = await metaplex.nfts().findByMint({ mintAddress });
     name = metadata.name || "";
     symbol = metadata.symbol || "";
-    image = metadata.json?.image || "";
+    
+    // Try to get image from metadata.json first
+    if (metadata.json?.image) {
+      image = metadata.json.image;
+    } else if (metadata.uri) {
+      // If no image in metadata.json, try to fetch from URI
+      try {
+        const response = await fetch(metadata.uri);
+        const jsonData = await response.json();
+        image = jsonData.image || "";
+      } catch (err) {
+        console.error("Error fetching metadata from URI:", err);
+      }
+    }
 
 
     if (mintAddressString === "So11111111111111111111111111111111111111112") {
       name = "Wrapped SOL";
       symbol = "SOL";
       image = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
+    }
+
+
+    if (image) {
+      try {
+        const response = await fetch(image, { method: 'HEAD' });
+        if (!response.ok) {
+          image = ""; 
+        }
+      } catch (err) {
+        console.error("Error validating image URL:", err);
+        image = ""; 
+      }
     }
   } catch (err) {
     console.error("Error fetching metadata:", err);

@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Upload, X, Users } from "lucide-react"
+import { Upload, X, Users, Download } from "lucide-react"
 import Link from "next/link"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useAirdrop } from "@/contexts/airdrop-context"
@@ -115,6 +115,25 @@ export default function RecipientsUploadPage() {
     router.push("/airdrops/new/configuration")
   }
 
+  const downloadSampleCSV = () => {
+    const sampleData = [
+      ["Recipient", "Amount"],
+      ["9kSXBczGtVeUTRfZnwMpz4mF8d86qjXsPjFb9RkPyJLF", "1"],
+      ["9kSXBczGtVeUTRfZnwMpz4mF8d86qjXsPjFb9RkPyJLF", "1"],
+    ]
+    
+    const csvContent = sampleData.map(row => row.join(",")).join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "Example_recipients.csv"
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  }
+
   if (!connected) {
     return (
       <div className="container py-6 space-y-6 max-w-4xl">
@@ -219,6 +238,15 @@ export default function RecipientsUploadPage() {
             <li>Wallet Address (required)</li>
             <li>Token Amount (required)</li>
           </ul>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-4"
+            onClick={downloadSampleCSV}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Example CSV
+          </Button>
         </div>
       )}
 

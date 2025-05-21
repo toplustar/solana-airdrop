@@ -17,27 +17,23 @@ import { getTokenMetadata } from "@/lib/token-utils";
 import { calculateCSVTotals, transformCSVFormat } from "@/lib/merkle-utils";
 import Image from "next/image";
 import { useStreamflowAuth } from "@/hooks/use-streamflow-auth"
-import { useToast } from "@/components/ui/use-toast"
 import { AirdropItem } from "@/types/airdrop";
-interface TokenMetadata {
-  symbol: string
-  image?: string
-  icon?: string
-  name?: string
-  decimals: number
-}
+import { TokenMetadata } from "@/types/metadata";
+import { useSnackbar } from "notistack";
+
 
 export default function ReviewPage() {
   const [isClient, setIsClient] = useState(false)
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [skipRedirect, setSkipRedirect] = useState(false)
   const { wallet, connected, publicKey } = useWallet()
   const { airdropData, resetAirdropData } = useAirdrop()
   const [tokenMetadata, setTokenMetadata] = useState<TokenMetadata | null>(null)
   const [totalAmount, setTotalAmount] = useState<number>(0)
   const [recipientCount, setRecipientCount] = useState<number>(0)
   const { loginToStreamflow } = useStreamflowAuth()
-  const { toast } = useToast()
+  const { enqueueSnackbar } = useSnackbar()
 
   useEffect(() => {
     setIsClient(true)
@@ -55,10 +51,10 @@ export default function ReviewPage() {
     }
     calculateTotals();
 
-    if (!airdropData.file) {
+    if (!airdropData.file && !isSubmitting && !skipRedirect) {
       router.push("/airdrops/new/recipients")
     }
-  }, [airdropData.file, airdropData.token, router])
+  }, [airdropData.file, airdropData.token, router, isSubmitting])
 
   if (!isClient) return null
 
@@ -67,65 +63,68 @@ export default function ReviewPage() {
 
     try {
       if (!publicKey || !airdropData.file) {
-        throw new Error("Wallet not connected or file not uploaded")
+        enqueueSnackbar("Wallet not connected or file not uploaded", { variant: "error" })
+        return
       }
 
       const isAuthenticated = await loginToStreamflow()
       if (!isAuthenticated) {
-        throw new Error("Authentication failed")
+        enqueueSnackbar("Authentication failed", { variant: "error" })
+        return
       }
 
-      if (!localStorage.getItem("streamflow_sid")) {
-        throw new Error("Authentication failed")
+      const sid = localStorage.getItem("streamflow_sid")
+      if (!sid) {
+        enqueueSnackbar("Authentication failed - no session ID", { variant: "error" })
+        return
       }
 
+      // Transform CSV file
       const transformedFile = await transformCSVFormat(
         airdropData.file,
         airdropData.tokenDecimals,
         airdropData.type
-      );
+      )
 
-      const formData = new FormData();
-      formData.append('mint', airdropData.token);
-      formData.append('name', airdropData.title);
-      formData.append('file', transformedFile);
-      const sid = localStorage.getItem("streamflow_sid");
-      if (!sid) {
-        throw new Error("Authentication failed - no session ID");
-      }
-      formData.append('sid', sid);
+      // Create form data
+      const formData = new FormData()
+      formData.append('mint', airdropData.token)
+      formData.append('name', airdropData.title)
+      formData.append('file', transformedFile)
+      formData.append('sid', sid)
 
+      // Create airdrop on backend
       const res = await fetch("/api/airdrops", {
         method: "POST",
         body: formData,
-      });
+      })
 
       if (!res.ok) {
-        throw new Error("Failed to create airdrop")
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.message || "Failed to create airdrop")
       }
 
-      const data: AirdropItem = await res.json();
-      console.log(data, "data")
+      const data: AirdropItem = await res.json()
 
+      // Initialize Solana client
       const client = new SolanaDistributorClient({
         clusterUrl: "https://api.devnet.solana.com",
         cluster: ICluster.Devnet,
-      });
+      })
 
-      const currentTimestamp = Math.floor(Date.now() / 1000);
+      // Calculate timestamps
+      const currentTimestamp = Math.floor(Date.now() / 1000)
+      const startVestingTs = currentTimestamp + (5 * 60)
+      let endVestingTs = startVestingTs
 
-      const startVestingTs = currentTimestamp + (5 * 60);
-
-      let endVestingTs = startVestingTs;
       if (airdropData.type === "vested" && airdropData.distributionEndDate) {
-        const [hours, minutes] = airdropData.distributionEndTime.split(':');
-        const endDate = new Date(airdropData.distributionEndDate);
-        endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        endVestingTs = Math.floor(endDate.getTime() / 1000);
+        const [hours, minutes] = airdropData.distributionEndTime.split(':')
+        const endDate = new Date(airdropData.distributionEndDate)
+        endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+        endVestingTs = Math.floor(endDate.getTime() / 1000)
       }
 
-      const clawbackStartTs = startVestingTs;
-
+      // Create airdrop on chain
       const response = await client.create(
         {
           mint: data.mint,
@@ -134,25 +133,33 @@ export default function ReviewPage() {
           maxNumNodes: Number(data.maxNumNodes),
           maxTotalClaim: Number(data.maxTotalClaim),
           unlockPeriod: parseInt(airdropData.unlockInterval),
-          startVestingTs: startVestingTs,
-          endVestingTs: endVestingTs,
-          clawbackStartTs: clawbackStartTs,
+          startVestingTs,
+          endVestingTs,
+          clawbackStartTs: startVestingTs,
           claimsClosableByAdmin: airdropData.cancellable,
         },
         {
           invoker: wallet?.adapter as any,
           isNative: airdropData.token === "So11111111111111111111111111111111111111112",
         }
-      );
-    
-      console.log("Airdrop created:", response);
+      )
 
+      if (!response.metadataId) {
+        throw new Error("Failed to create airdrop - no metadata ID returned")
+      }
 
-      // resetAirdropData()
-      // router.push("/airdrops?tab=created")
+      // Success - redirect and cleanup
+      setSkipRedirect(true)
+      await router.push(`/airdrops/solana/devnet/${response.metadataId}`)
+      setTimeout(() => {
+        resetAirdropData()
+      }, 100)
 
     } catch (error) {
-      console.error("Error creating airdrop:", error);
+      enqueueSnackbar(
+        error instanceof Error ? error.message : "Failed to create airdrop",
+        { variant: "error" }
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -172,10 +179,9 @@ export default function ReviewPage() {
     )
   }
 
-  // Check if the airdrop type is vested
+
   const isVested = airdropData.type === "vested"
 
-  // Format unlock interval for display
   const formatUnlockInterval = (interval: string) => {
     switch (interval) {
       case "per_second":
@@ -206,7 +212,6 @@ export default function ReviewPage() {
         <p className="text-muted-foreground">Review your airdrop details before creating it.</p>
       </div>
 
-      {/* Contract Overview Section */}
       <Card>
         <CardHeader>
           <CardTitle>Contract Overview</CardTitle>
@@ -230,7 +235,7 @@ export default function ReviewPage() {
               <h3 className="text-sm font-medium text-muted-foreground mb-1">Total Amount</h3>
               <div className="flex items-center gap-2">
                 <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs">
-                  {tokenMetadata?.icon ? <Image src={tokenMetadata.icon} alt={tokenMetadata.symbol} width={20} height={20} /> : tokenMetadata?.symbol.charAt(0).toUpperCase()}
+                  {tokenMetadata?.image ? <Image src={tokenMetadata.image} alt={tokenMetadata.symbol} width={20} height={20} /> : "?"}
                 </div>
                 <p className="font-medium">{totalAmount} {tokenMetadata?.symbol}</p>
               </div>
@@ -243,7 +248,6 @@ export default function ReviewPage() {
         </CardContent>
       </Card>
 
-      {/* Configuration Section */}
       <Card>
         <CardHeader>
           <CardTitle>Configuration</CardTitle>
@@ -260,7 +264,6 @@ export default function ReviewPage() {
               </div>
             </div>
 
-            {/* Show vesting configuration if applicable */}
             {isVested && airdropData.distributionEndDate && (
               <>
                 <div>
@@ -302,7 +305,6 @@ export default function ReviewPage() {
         </CardContent>
       </Card>
 
-      {/* Recipients Section */}
       <Card>
         <CardHeader>
           <CardTitle>Recipients</CardTitle>
@@ -332,7 +334,6 @@ export default function ReviewPage() {
         </CardContent>
       </Card>
 
-      {/* Navigation buttons */}
       <div className="flex justify-between mt-8">
         <Button variant="outline" asChild>
           <Link href="/airdrops/new/configuration">Back</Link>

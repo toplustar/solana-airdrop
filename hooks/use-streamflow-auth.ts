@@ -7,16 +7,7 @@ export const useStreamflowAuth = () => {
 
     const loginToStreamflow = useCallback(async () => {
         if (!connected || !publicKey || !signMessage) {
-            throw new Error("Wallet not connected")
-        }
-
-        const session = await fetch('/api/auth/session', {
-            method: 'GET',
-        })
-        const sessionData = await session.json()
-
-        if (sessionData && sessionData.user) {
-            return true
+            return
         }
 
         const res = await fetch(`/api/auth/state/SOLANA/${publicKey.toBase58()}`, {

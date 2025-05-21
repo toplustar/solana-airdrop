@@ -18,7 +18,6 @@ export async function searchDistributeStream( address: string) {
 export async function getDistributor(id: string) {
   const distributors = await client.getDistributors({ ids: [id] });
   const distributor = distributors[0];
-  console.log("🔹 distributor:", distributor);
   return {
     numNodesClaimed: Number(distributor?.numNodesClaimed),
     totalAmountClaimed: Number(distributor?.totalAmountClaimed),
@@ -34,7 +33,6 @@ export async function getClaims(recipient: string, id: string) {
     id: id,
     recipient: recipient,
   }]);
-  console.log("🔹 claims:", claims);
   return claims;
 }
 

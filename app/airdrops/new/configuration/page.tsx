@@ -48,11 +48,13 @@ export default function ConfigurationPage() {
   const [cancellable, setCancellable] = useState(airdropData.cancellable)
   const [claimOnce, setClaimOnce] = useState(airdropData.claimOnce)
   const [walletTokens, setWalletTokens] = useState<Token[]>([])
-  const [isLoadingTokens, setIsLoadingTokens] = useState(false)
+  const [isLoadingTokens, setIsLoadingTokens] = useState(true)
   const [tokenError, setTokenError] = useState<string | null>(null)
-  const [distributionEndDate, setDistributionEndDate] = useState<Date | undefined>(
-    airdropData.distributionEndDate || undefined,
-  )
+  const [distributionEndDate, setDistributionEndDate] = useState<Date | undefined>(() => {
+    const date = new Date()
+    date.setDate(date.getDate() + 7)
+    return date
+  })
   const [distributionEndTime, setDistributionEndTime] = useState(airdropData.distributionEndTime || "12:00")
   const [unlockInterval, setUnlockInterval] = useState(airdropData.unlockInterval || "daily")
   const [distributionEndTimeError, setDistributionEndTimeError] = useState<string | null>(null)
@@ -62,23 +64,20 @@ export default function ConfigurationPage() {
     setIsClient(true)
   }, [])
 
-  // Check if the airdrop type is vested
+
   const isVested = airdropData.type === "vested"
 
-  
 
-  // Fetch tokens from wallet
   useEffect(() => {
     async function fetchWalletTokens() {
-      if (!connected || !publicKey) return
-
-      setIsLoadingTokens(true)
-      setTokenError(null)
+      if (!connected || !publicKey) {
+        setIsLoadingTokens(false)
+        return
+      }
 
       try {
         const connection = new Connection(clusterApiUrl("devnet"))
 
-        // Get SOL balance and price
         const [solBalance, solPriceResponse] = await Promise.all([
           connection.getBalance(publicKey),
           fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
@@ -100,12 +99,10 @@ export default function ConfigurationPage() {
 
         const tokens = await fetchSPLTokens(connection, publicKey)
 
-        // Combine SOL with SPL tokens
         const allTokens = [solToken, ...tokens]
 
         setWalletTokens(allTokens)
 
-        // If no token is selected yet and we have tokens, select the first one
         if (!token && allTokens.length > 0) {
           setToken(allTokens[0].address)
         }
@@ -120,13 +117,12 @@ export default function ConfigurationPage() {
     fetchWalletTokens()
   }, [connected, publicKey, token])
 
-  // Function to fetch SPL tokens
+ 
   async function fetchSPLTokens(connection: Connection, publicKey: PublicKey): Promise<Token[]> {
     try {
-      // Get all token accounts owned by the wallet
+
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID })
 
-      // Filter out tokens with zero balance and wSOL
       const nonZeroTokens = tokenAccounts.value.filter((tokenAccount) => {
         const parsedInfo = tokenAccount.account.data.parsed.info
         const amount = parsedInfo.tokenAmount.uiAmount
@@ -134,7 +130,6 @@ export default function ConfigurationPage() {
         return amount > 0 && mintAddress !== "So11111111111111111111111111111111111111112"
       })
 
-      // Map token accounts to our Token interface
       const tokens = await Promise.all(nonZeroTokens.map(async (tokenAccount) => {
         const parsedInfo = tokenAccount.account.data.parsed.info
         const mintAddress = parsedInfo.mint
@@ -142,7 +137,6 @@ export default function ConfigurationPage() {
         const decimals = parsedInfo.tokenAmount.decimals
         const rawBalance = Number(parsedInfo.tokenAmount.amount)
 
-        // Get token info (symbol and icon)
         const tokenInfo = await getTokenMetadata(mintAddress)
 
         return {
@@ -163,7 +157,6 @@ export default function ConfigurationPage() {
     }
   }
 
-  // Redirect if no file is uploaded
   useEffect(() => {
     if (!airdropData.file) {
       router.push("/airdrops/new/recipients")
@@ -175,7 +168,6 @@ export default function ConfigurationPage() {
   }
 
   const handleNextStep = () => {
-    // Save configuration to context
     updateConfiguration({
       title,
       token,
@@ -190,7 +182,6 @@ export default function ConfigurationPage() {
     router.push("/airdrops/new/review")
   }
 
-  // Update validation function to include unlock interval check
   const validateEndDateTime = (date: Date | undefined, time: string, interval: string) => {
     if (!date) return null
     
@@ -202,7 +193,6 @@ export default function ConfigurationPage() {
       return "End time must be in the future"
     }
 
-    // Calculate duration in seconds
     const durationInSeconds = (endDateTime.getTime() - new Date().getTime()) / 1000
     const intervalSeconds = parseInt(interval)
 
@@ -213,7 +203,6 @@ export default function ConfigurationPage() {
     return null
   }
 
-  // Helper function to format interval for display
   const formatInterval = (seconds: number) => {
     if (seconds === 1) return "1 second"
     if (seconds === 60) return "1 minute"
@@ -225,7 +214,6 @@ export default function ConfigurationPage() {
     return `${seconds} seconds`
   }
 
-  // Helper function to format duration
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
@@ -236,14 +224,12 @@ export default function ConfigurationPage() {
     return `${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`
   }
 
-  // Update the time change handler
   const handleEndTimeChange = (newTime: string) => {
     setDistributionEndTime(newTime)
     const error = validateEndDateTime(distributionEndDate, newTime, unlockInterval)
     setDistributionEndTimeError(error)
   }
 
-  // Update the date change handler
   const handleEndDateChange = (newDate: Date | undefined) => {
     setDistributionEndDate(newDate)
     if (newDate) {
@@ -254,7 +240,6 @@ export default function ConfigurationPage() {
     }
   }
 
-  // Add handler for unlock interval changes
   const handleUnlockIntervalChange = (newInterval: string) => {
     setUnlockInterval(newInterval)
     if (distributionEndDate) {
@@ -263,7 +248,6 @@ export default function ConfigurationPage() {
     }
   }
 
-  // Update the isFormValid check
   const isFormValid =
     title.trim() !== "" && 
     airdropData.file !== null && 
@@ -284,7 +268,6 @@ export default function ConfigurationPage() {
     )
   }
 
-  // Function to render token icon
   const renderTokenIcon = (t: Token) => {
     return (
       <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-foreground">
@@ -301,7 +284,7 @@ export default function ConfigurationPage() {
       </div>
 
       <form className="space-y-8">
-        {/* Title Input */}
+        
         <div className="space-y-2">
           <Label htmlFor="title">Title</Label>
           <Input
@@ -312,7 +295,6 @@ export default function ConfigurationPage() {
           />
         </div>
 
-        {/* Token Selector */}
         <div className="space-y-2">
           <Label htmlFor="token">Token</Label>
           <Select 
@@ -385,22 +367,12 @@ export default function ConfigurationPage() {
           )}
         </div>
 
-        {/* Toggle: Start upon contract creation */}
-        <div className="flex items-center justify-between">
-          <Label htmlFor="start-upon-creation" className="cursor-pointer">
-            Start upon contract creation
-          </Label>
-          <Switch id="start-upon-creation" checked={startUponCreation} onCheckedChange={setStartUponCreation} />
-        </div>
-
-        {/* Vesting Configuration - Only show if airdrop type is vested */}
         {isVested && (
           <Card className="border border-border">
             <CardHeader>
               <CardTitle className="text-lg">Vesting Configuration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Distribution End Date */}
               <div className="space-y-2">
                 <Label htmlFor="distribution-end-date">Distribution End Date</Label>
                 <Popover>
@@ -429,7 +401,6 @@ export default function ConfigurationPage() {
                 </Popover>
               </div>
 
-              {/* Distribution End Time */}
               <div className="space-y-2">
                 <Label htmlFor="distribution-end-time">Distribution End Time</Label>
                 <div className="flex items-center">
@@ -449,7 +420,6 @@ export default function ConfigurationPage() {
                 )}
               </div>
 
-              {/* Unlock Interval */}
               <div className="space-y-2">
                 <Label htmlFor="unlock-interval">Unlock Interval</Label>
                 <Select value={unlockInterval} onValueChange={handleUnlockIntervalChange}>
@@ -474,7 +444,6 @@ export default function ConfigurationPage() {
           </Card>
         )}
 
-        {/* Toggle: Cancellable Airdrop */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="cancellable" className="cursor-pointer">
@@ -488,7 +457,6 @@ export default function ConfigurationPage() {
           </p>
         </div>
 
-        {/* Toggle: Claim once */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="claim-once" className="cursor-pointer">
@@ -502,7 +470,6 @@ export default function ConfigurationPage() {
           </p>
         </div>
 
-        {/* Total Recipients */}
         <div className="space-y-2">
           <Label htmlFor="total-recipients">Total Recipients</Label>
           <Input
@@ -513,7 +480,6 @@ export default function ConfigurationPage() {
           />
         </div>
 
-        {/* CSV File Summary Card */}
         {airdropData.file && (
           <Card>
             <CardContent className="p-4">
@@ -542,7 +508,6 @@ export default function ConfigurationPage() {
         )}
       </form>
 
-      {/* Navigation buttons */}
       <div className="flex justify-between mt-8">
         <Button variant="outline" asChild>
           <Link href="/airdrops/new/recipients">Back</Link>

@@ -28,9 +28,7 @@ export default function RootLayout({
               <div className="flex min-h-screen flex-col">
                 <Header />
                 <main className="flex-1">
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {children}
-                  </React.Suspense>
+                  {children}
                 </main>
               </div>
             </AirdropProvider>

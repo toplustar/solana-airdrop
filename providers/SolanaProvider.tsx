@@ -6,7 +6,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui"
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets"
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base"
 import { clusterApiUrl } from "@solana/web3.js"
-import bs58 from "bs58"
+import { SnackbarProvider } from "notistack"
 
 import "@solana/wallet-adapter-react-ui/styles.css"
 
@@ -28,9 +28,11 @@ const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
         wallets={wallets}
         autoConnect
       >
-        <WalletModalProvider>
-          {children}
-        </WalletModalProvider>
+        <SnackbarProvider anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+          <WalletModalProvider>
+            {children}
+          </WalletModalProvider>
+        </SnackbarProvider>
       </WalletProvider>
     </ConnectionProvider>
   )
