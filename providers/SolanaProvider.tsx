@@ -14,25 +14,6 @@ interface SolanaProviderProps {
   children: ReactNode
 }
 
-const WalletConnectionListener: FC = () => {
-  const { connected, publicKey, signMessage } = useWallet();
-
-  useEffect(() => {
-    const loginToStreamflow = async () => {
-      if (!connected || !publicKey || !signMessage) return;
-
-      const session = await fetch('/api/auth/session', {
-        method: 'GET',
-      })
-      const sessionData = await session.json()
-      console.log("🔹 sessionData:", sessionData);
-  }
-  loginToStreamflow()
-}, [connected, publicKey, signMessage]);
-
-  return null;
-
-}
 
 const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
   const network = WalletAdapterNetwork.Devnet
@@ -43,12 +24,11 @@ const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider 
-        wallets={wallets} 
+      <WalletProvider
+        wallets={wallets}
         autoConnect
       >
         <WalletModalProvider>
-          <WalletConnectionListener />
           {children}
         </WalletModalProvider>
       </WalletProvider>

@@ -10,17 +10,15 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useAirdrop } from "@/contexts/airdrop-context"
 import WalletNotConnected from "@/components/wallet-not-connected"
 import { format } from "date-fns"
-import { MerkleTree } from "@/lib/merkle-utils"
-import { Recipient } from "@/lib/merkle-utils"
 import { SolanaDistributorClient } from "@streamflow/distributor/solana";
 import { ICluster } from "@streamflow/common";
 import { BN } from "bn.js";
 import { getTokenMetadata } from "@/lib/token-utils";
-import { calculateCSVTotals } from "@/lib/merkle-utils";
+import { calculateCSVTotals, transformCSVFormat } from "@/lib/merkle-utils";
 import Image from "next/image";
 import { useStreamflowAuth } from "@/hooks/use-streamflow-auth"
 import { useToast } from "@/components/ui/use-toast"
-
+import { AirdropItem } from "@/types/airdrop";
 interface TokenMetadata {
   symbol: string
   image?: string
@@ -72,39 +70,42 @@ export default function ReviewPage() {
         throw new Error("Wallet not connected or file not uploaded")
       }
 
-
       const isAuthenticated = await loginToStreamflow()
       if (!isAuthenticated) {
         throw new Error("Authentication failed")
       }
 
-      const session = await fetch('/api/auth/session', {
-        method: 'GET',
-      })
+      if (!localStorage.getItem("streamflow_sid")) {
+        throw new Error("Authentication failed")
+      }
+
+      const transformedFile = await transformCSVFormat(
+        airdropData.file,
+        airdropData.tokenDecimals,
+        airdropData.type
+      );
 
       const formData = new FormData();
       formData.append('mint', airdropData.token);
       formData.append('name', airdropData.title);
-      formData.append('file', airdropData.file);
+      formData.append('file', transformedFile);
+      const sid = localStorage.getItem("streamflow_sid");
+      if (!sid) {
+        throw new Error("Authentication failed - no session ID");
+      }
+      formData.append('sid', sid);
 
       const res = await fetch("/api/airdrops", {
         method: "POST",
         body: formData,
       });
 
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error("Failed to create airdrop")
+      }
+
+      const data: AirdropItem = await res.json();
       console.log(data, "data")
-
-
-      const totals = await calculateCSVTotals(airdropData.file, airdropData.tokenDecimals);
-      const maxNumNodes = new BN(totals.maxNodes.toString());
-      const maxTotalClaim = new BN(totals.totalAmount.toString());
-
-      const merkleTree = new MerkleTree(totals.recipients);
-      const root = merkleTree.getRoot();
-
-      console.log("Merkle root:", root);
-      console.log("Airdrop data:", airdropData);
 
       const client = new SolanaDistributorClient({
         clusterUrl: "https://api.devnet.solana.com",
@@ -115,49 +116,40 @@ export default function ReviewPage() {
 
       const startVestingTs = currentTimestamp + (5 * 60);
 
-      let endVestingTs = currentTimestamp + (60 * 60);;
+      let endVestingTs = startVestingTs;
       if (airdropData.type === "vested" && airdropData.distributionEndDate) {
         const [hours, minutes] = airdropData.distributionEndTime.split(':');
         const endDate = new Date(airdropData.distributionEndDate);
         endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
         endVestingTs = Math.floor(endDate.getTime() / 1000);
+      }
 
-        if (endVestingTs <= startVestingTs) {
-          throw new Error("Distribution end time must be after start time");
+      const clawbackStartTs = startVestingTs;
+
+      const response = await client.create(
+        {
+          mint: data.mint,
+          version: Number(data.version),
+          root: data.merkleRoot || [],
+          maxNumNodes: Number(data.maxNumNodes),
+          maxTotalClaim: Number(data.maxTotalClaim),
+          unlockPeriod: parseInt(airdropData.unlockInterval),
+          startVestingTs: startVestingTs,
+          endVestingTs: endVestingTs,
+          clawbackStartTs: clawbackStartTs,
+          claimsClosableByAdmin: airdropData.cancellable,
+        },
+        {
+          invoker: wallet?.adapter as any,
+          isNative: airdropData.token === "So11111111111111111111111111111111111111112",
         }
-      }
+      );
+    
+      console.log("Airdrop created:", response);
 
-      const clawbackStartTs = currentTimestamp + (30 * 60);
 
-      
-
-      // const res = await client.create(
-      //   {
-      //     mint: airdropData.token,
-      //     version: currentTimestamp,
-      //     root: root,
-      //     maxNumNodes, 
-      //     maxTotalClaim, 
-      //     unlockPeriod: parseInt(airdropData.unlockInterval),
-      //     startVestingTs: startVestingTs,
-      //     endVestingTs: endVestingTs,
-      //     clawbackStartTs: clawbackStartTs,
-      //     claimsClosableByAdmin: airdropData.cancellable,
-      //   },
-      //   {
-      //     invoker: wallet?.adapter as any,
-      //     isNative: airdropData.token === "So11111111111111111111111111111111111111112",
-      //   }
-      // );
-
-      console.log("Airdrop created:", res);
-
-      if (!res) {
-        return
-      }
-
-      resetAirdropData()
-      router.push("/airdrops?tab=created")
+      // resetAirdropData()
+      // router.push("/airdrops?tab=created")
 
     } catch (error) {
       console.error("Error creating airdrop:", error);

@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { shortenAddress } from "@/lib/solana-wallet"
+import { shortenAddress } from "@/lib/utils"
 import ConnectWalletButton from "./ConnectWalletButton"
 
 export default function Header() {

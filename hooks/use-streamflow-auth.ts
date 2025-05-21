@@ -38,6 +38,8 @@ state: ${state}`
 
         const response = await fetch('/api/auth/login', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
                 chain: "SOLANA",
                 walletAddress: publicKey.toBase58(),
@@ -46,7 +48,10 @@ state: ${state}`
                 referral: null
             })
         })
-        console.log(response.status, response.ok)
+        const result = await response.json();
+        const sid = result.sid;
+        localStorage.setItem("streamflow_sid", sid);
+        console.log("Got sid:", sid);
         return response.ok
     }, [connected, publicKey, signMessage])
 

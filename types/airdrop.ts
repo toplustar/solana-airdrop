@@ -43,8 +43,8 @@ export interface AirdropItem {
   isActive: boolean
   isOnChain: boolean
   isVerified: boolean
-  clawbackDt: string | null
-  isAligned: boolean
+  clawbackDt?: string | null
+  isAligned?: boolean
   merkleRoot?: number[]
 }
 

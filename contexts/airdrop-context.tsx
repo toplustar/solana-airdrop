@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useContext, useState, type ReactNode } from "react"
 
 interface AirdropData {
-  type: string | null
+  type: string 
   file: File | null
   recipientCount: number
   title: string
