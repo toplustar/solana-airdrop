@@ -7,9 +7,18 @@ export async function getTokenMetadata(mintAddressString: string) {
   const connection = new Connection(clusterApiUrl("devnet"));
   const metaplex = new Metaplex(connection);
 
+  if (mintAddressString === "So11111111111111111111111111111111111111112") {
+    return {
+      decimals: 9,
+      name: "Wrapped SOL",
+      symbol: "SOL",
+      image: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+    }
+  }
+
   let decimals = 9;
-  let name = "unknown";
-  let symbol = "unknown";
+  let name = null;
+  let symbol = null;
   let image = "";
 
   try {
@@ -23,12 +32,11 @@ export async function getTokenMetadata(mintAddressString: string) {
     const metadata = await metaplex.nfts().findByMint({ mintAddress });
     name = metadata.name || "";
     symbol = metadata.symbol || "";
-    
-    // Try to get image from metadata.json first
+
     if (metadata.json?.image) {
       image = metadata.json.image;
     } else if (metadata.uri) {
-      // If no image in metadata.json, try to fetch from URI
+
       try {
         const response = await fetch(metadata.uri);
         const jsonData = await response.json();
@@ -39,27 +47,29 @@ export async function getTokenMetadata(mintAddressString: string) {
     }
 
 
-    if (mintAddressString === "So11111111111111111111111111111111111111112") {
-      name = "Wrapped SOL";
-      symbol = "SOL";
-      image = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
-    }
-
-
     if (image) {
       try {
         const response = await fetch(image, { method: 'HEAD' });
         if (!response.ok) {
-          image = ""; 
+          image = "";
         }
       } catch (err) {
         console.error("Error validating image URL:", err);
-        image = ""; 
+        image = "";
       }
     }
   } catch (err) {
     console.error("Error fetching metadata:", err);
   }
+
+  if (!name) {
+    name = mintAddressString.substring(0, 5);
+  }
+
+  if (!symbol) {
+    symbol = mintAddressString.substring(0, 5);
+  }
+
 
   return {
     decimals,

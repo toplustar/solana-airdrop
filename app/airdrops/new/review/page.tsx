@@ -10,122 +10,95 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useAirdrop } from "@/contexts/airdrop-context"
 import WalletNotConnected from "@/components/wallet-not-connected"
 import { format } from "date-fns"
-import { SolanaDistributorClient } from "@streamflow/distributor/solana";
-import { ICluster } from "@streamflow/common";
-import { BN } from "bn.js";
-import { getTokenMetadata } from "@/lib/token-utils";
-import { calculateCSVTotals, transformCSVFormat } from "@/lib/merkle-utils";
-import Image from "next/image";
+import { SolanaDistributorClient } from "@streamflow/distributor/solana"
+import { ICluster } from "@streamflow/common"
+import { getTokenMetadata } from "@/lib/token-utils"
+import { calculateCSVTotals, transformCSVFormat } from "@/lib/merkle-utils"
+import Image from "next/image"
 import { useStreamflowAuth } from "@/hooks/use-streamflow-auth"
-import { AirdropItem } from "@/types/airdrop";
-import { TokenMetadata } from "@/types/metadata";
-import { useSnackbar } from "notistack";
-
+import { AirdropItem } from "@/types/airdrop"
+import { TokenMetadata } from "@/types/metadata"
+import { useSnackbar } from "notistack"
 
 export default function ReviewPage() {
-  const [isClient, setIsClient] = useState(false)
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [skipRedirect, setSkipRedirect] = useState(false)
   const { wallet, connected, publicKey } = useWallet()
   const { airdropData, resetAirdropData } = useAirdrop()
-  const [tokenMetadata, setTokenMetadata] = useState<TokenMetadata | null>(null)
-  const [totalAmount, setTotalAmount] = useState<number>(0)
-  const [recipientCount, setRecipientCount] = useState<number>(0)
   const { loginToStreamflow } = useStreamflowAuth()
   const { enqueueSnackbar } = useSnackbar()
 
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
+  const [tokenMetadata, setTokenMetadata] = useState<TokenMetadata | null>(null)
+  const [totalAmount, setTotalAmount] = useState(0)
+  const [recipientCount, setRecipientCount] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    const calculateTotals = async () => {
-      if (airdropData.file) {
-        const totals = await calculateCSVTotals(airdropData.file, airdropData.tokenDecimals);
-        setTotalAmount(totals.totalAmount / Math.pow(10, airdropData.tokenDecimals));
-        setRecipientCount(totals.maxNodes);
+    const init = async () => {
+      if (!airdropData.file) {
+        router.push("/airdrops/new/recipients")
+        return
+      }
+
+      try {
+        const totals = await calculateCSVTotals(airdropData.file, airdropData.tokenDecimals)
+        setTotalAmount(totals.totalAmount / Math.pow(10, airdropData.tokenDecimals))
+        setRecipientCount(totals.maxNodes)
+
         const metadata = await getTokenMetadata(airdropData.token)
         setTokenMetadata(metadata)
+      } catch (err) {
+        enqueueSnackbar("Error processing airdrop file", { variant: "error" })
       }
     }
-    calculateTotals();
 
-    if (!airdropData.file && !isSubmitting && !skipRedirect) {
-      router.push("/airdrops/new/recipients")
-    }
-  }, [airdropData.file, airdropData.token, router, isSubmitting])
-
-  if (!isClient) return null
+    init()
+  }, [airdropData])
 
   const handleCreateAirdrop = async () => {
     setIsSubmitting(true)
 
     try {
-      if (!publicKey || !airdropData.file) {
-        enqueueSnackbar("Wallet not connected or file not uploaded", { variant: "error" })
-        return
-      }
+      if (!publicKey || !airdropData.file) throw new Error("Wallet not connected or file missing")
 
-      const isAuthenticated = await loginToStreamflow()
-      if (!isAuthenticated) {
-        enqueueSnackbar("Authentication failed", { variant: "error" })
-        return
-      }
+      const authenticated = await loginToStreamflow()
+      if (!authenticated) throw new Error("Authentication failed")
 
       const sid = localStorage.getItem("streamflow_sid")
-      if (!sid) {
-        enqueueSnackbar("Authentication failed - no session ID", { variant: "error" })
-        return
-      }
+      if (!sid) throw new Error("Missing session ID")
 
-      // Transform CSV file
-      const transformedFile = await transformCSVFormat(
+      const transformed = await transformCSVFormat(
         airdropData.file,
         airdropData.tokenDecimals,
         airdropData.type
       )
 
-      // Create form data
       const formData = new FormData()
-      formData.append('mint', airdropData.token)
-      formData.append('name', airdropData.title)
-      formData.append('file', transformedFile)
-      formData.append('sid', sid)
+      formData.append("mint", airdropData.token)
+      formData.append("name", airdropData.title)
+      formData.append("file", transformed)
+      formData.append("sid", sid)
 
-      // Create airdrop on backend
-      const res = await fetch("/api/airdrops", {
-        method: "POST",
-        body: formData,
-      })
+      const backendRes = await fetch("/api/airdrops", { method: "POST", body: formData })
+      if (!backendRes.ok) throw new Error("Failed to create airdrop")
+      const data: AirdropItem = await backendRes.json()
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        throw new Error(errorData.message || "Failed to create airdrop")
-      }
-
-      const data: AirdropItem = await res.json()
-
-      // Initialize Solana client
       const client = new SolanaDistributorClient({
         clusterUrl: "https://api.devnet.solana.com",
         cluster: ICluster.Devnet,
       })
 
-      // Calculate timestamps
-      const currentTimestamp = Math.floor(Date.now() / 1000)
-      const startVestingTs = currentTimestamp + (5 * 60)
-      let endVestingTs = startVestingTs
+      const now = Math.floor(Date.now() / 1000)
+      const start = now + 300
+      let end = start
 
       if (airdropData.type === "vested" && airdropData.distributionEndDate) {
-        const [hours, minutes] = airdropData.distributionEndTime.split(':')
+        const [h, m] = airdropData.distributionEndTime.split(":")
         const endDate = new Date(airdropData.distributionEndDate)
-        endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
-        endVestingTs = Math.floor(endDate.getTime() / 1000)
+        endDate.setHours(parseInt(h), parseInt(m), 0, 0)
+        end = Math.floor(endDate.getTime() / 1000)
       }
 
-      // Create airdrop on chain
-      const response = await client.create(
+      const onChainRes = await client.create(
         {
           mint: data.mint,
           version: Number(data.version),
@@ -133,9 +106,9 @@ export default function ReviewPage() {
           maxNumNodes: Number(data.maxNumNodes),
           maxTotalClaim: Number(data.maxTotalClaim),
           unlockPeriod: parseInt(airdropData.unlockInterval),
-          startVestingTs,
-          endVestingTs,
-          clawbackStartTs: startVestingTs,
+          startVestingTs: start,
+          endVestingTs: end,
+          clawbackStartTs: start,
           claimsClosableByAdmin: airdropData.cancellable,
         },
         {
@@ -144,22 +117,14 @@ export default function ReviewPage() {
         }
       )
 
-      if (!response.metadataId) {
-        throw new Error("Failed to create airdrop - no metadata ID returned")
-      }
+      if (!onChainRes.metadataId) throw new Error("Chain transaction failed")
 
-      // Success - redirect and cleanup
-      setSkipRedirect(true)
-      await router.push(`/airdrops/solana/devnet/${response.metadataId}`)
+      router.push(`/airdrops/solana/devnet/${onChainRes.metadataId}`)
       setTimeout(() => {
         resetAirdropData()
-      }, 100)
-
-    } catch (error) {
-      enqueueSnackbar(
-        error instanceof Error ? error.message : "Failed to create airdrop",
-        { variant: "error" }
-      )
+      }, 500)
+    } catch (err: any) {
+      enqueueSnackbar(err.message || "Failed to create airdrop", { variant: "error" })
     } finally {
       setIsSubmitting(false)
     }
@@ -168,164 +133,87 @@ export default function ReviewPage() {
   if (!connected) {
     return (
       <div className="container py-6 space-y-6 max-w-4xl">
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">STEP 4</h2>
-          <h1 className="text-2xl font-bold">Review</h1>
-          <p className="text-muted-foreground">Review your airdrop details before creating it.</p>
-        </div>
-
+        <h2 className="text-sm font-medium text-muted-foreground">STEP 4</h2>
+        <h1 className="text-2xl font-bold">Review</h1>
+        <p className="text-muted-foreground">Review your airdrop details before creating it.</p>
         <WalletNotConnected />
       </div>
     )
   }
 
-
   const isVested = airdropData.type === "vested"
-
-  const formatUnlockInterval = (interval: string) => {
-    switch (interval) {
-      case "per_second":
-        return "Per Second"
-      case "per_minute":
-        return "Per Minute"
-      case "per_hour":
-        return "Per Hour"
-      case "daily":
-        return "Daily"
-      case "weekly":
-        return "Weekly"
-      case "monthly":
-        return "Monthly"
-      case "quarterly":
-        return "Quarterly"
-      default:
-        return interval.charAt(0).toUpperCase() + interval.slice(1)
-    }
-  }
-
+  const formatUnlockInterval = (value: string) =>
+    value.replace("_", " ").replace(/^./, s => s.toUpperCase())
 
   return (
     <div className="container py-6 space-y-6 max-w-4xl">
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">STEP 4</h2>
-        <h1 className="text-2xl font-bold">Review</h1>
-        <p className="text-muted-foreground">Review your airdrop details before creating it.</p>
-      </div>
+      <h2 className="text-sm font-medium text-muted-foreground">STEP 4</h2>
+      <h1 className="text-2xl font-bold">Review</h1>
+      <p className="text-muted-foreground">Review your airdrop details before creating it.</p>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Contract Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Title</h3>
-              <p className="font-medium">{airdropData.title || "Untitled"}</p>
+        <CardHeader><CardTitle>Contract Overview</CardTitle></CardHeader>
+        <CardContent className="grid md:grid-cols-2 gap-4">
+          <div><h3 className="text-sm mb-1 text-muted-foreground">Title</h3><p className="font-medium">{airdropData.title}</p></div>
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 bg-primary text-xs text-primary-foreground rounded-full flex items-center justify-center">
+              {airdropData.type === "instant" ? "I" : "V"}
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Type</h3>
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs">
-                  {airdropData.type === "instant" ? "I" : "V"}
-                </div>
-                <p className="font-medium">{airdropData.type === "instant" ? "Instant" : "Vested"}</p>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Total Amount</h3>
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs">
-                  {tokenMetadata?.image ? <Image src={tokenMetadata.image} alt={tokenMetadata.symbol} width={20} height={20} /> : "?"}
-                </div>
-                <p className="font-medium">{totalAmount} {tokenMetadata?.symbol}</p>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Total Recipients</h3>
-              <p className="font-medium">{recipientCount}</p>
-            </div>
+            <p className="font-medium">{airdropData.type === "instant" ? "Instant" : "Vested"}</p>
           </div>
+          <div className="flex items-center gap-2">
+            {tokenMetadata?.image ? <Image src={tokenMetadata.image} alt="" width={20} height={20} /> : "?"}
+            <p className="font-medium">{totalAmount} {tokenMetadata?.symbol}</p>
+          </div>
+          <div><h3 className="text-sm mb-1 text-muted-foreground">Total Recipients</h3><p className="font-medium">{recipientCount}</p></div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Distribution Start</h3>
+        <CardHeader><CardTitle>Configuration</CardTitle></CardHeader>
+        <CardContent className="grid md:grid-cols-2 gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <p className="font-medium">
+              {airdropData.distributerStartTime ? format(airdropData.distributerStartTime, "MMM d, yyyy") : "Not set"}
+            </p>
+          </div>
+
+          {isVested && airdropData.distributionEndDate && (
+            <>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <p className="font-medium">
-                  {airdropData.distributerStartTime ? format(airdropData.distributerStartTime, "MMM d, yyyy") : "Not set"}
+                  {format(airdropData.distributionEndDate, "MMM d, yyyy")} • {airdropData.distributionEndTime}
                 </p>
               </div>
-            </div>
-
-            {isVested && airdropData.distributionEndDate && (
-              <>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Distribution End</h3>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">
-                      {format(airdropData.distributionEndDate, "MMM d, yyyy")} • {airdropData.distributionEndTime}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Unlock Interval</h3>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{formatUnlockInterval(airdropData.unlockInterval)}</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Cancellable</h3>
               <div className="flex items-center gap-2">
-                {airdropData.cancellable ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <p className="font-medium text-green-500">Yes</p>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <p className="font-medium text-red-500">No</p>
-                  </>
-                )}
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <p className="font-medium">{formatUnlockInterval(airdropData.unlockInterval)}</p>
               </div>
-            </div>
+            </>
+          )}
+
+          <div className="flex items-center gap-2">
+            {airdropData.cancellable ? <CheckCircle className="text-green-500 w-4 h-4" /> : <XCircle className="text-red-500 w-4 h-4" />}
+            <p className={`font-medium ${airdropData.cancellable ? "text-green-500" : "text-red-500"}`}>{airdropData.cancellable ? "Yes" : "No"}</p>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Recipients</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Recipients</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-1">Total recipients</h3>
-            <div className="w-24 h-10 bg-secondary/50 rounded-md flex items-center justify-center font-medium">
-              {recipientCount}
-            </div>
+          <div className="w-24 h-10 bg-secondary/50 rounded-md flex items-center justify-center font-medium">
+            {recipientCount}
           </div>
 
           {airdropData.file && (
             <Card className="border border-border">
               <CardContent className="p-4 flex items-center justify-between">
-                <div className="space-y-1">
+                <div>
                   <h3 className="font-medium">{airdropData.file.name}</h3>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>{recipientCount} Recipients</p>
-                    <p>Predefined in CSV</p>
-                  </div>
+                  <p className="text-sm text-muted-foreground">{recipientCount} Recipients • Predefined in CSV</p>
                 </div>
                 <FileText className="h-10 w-10 text-muted-foreground" />
               </CardContent>
@@ -338,19 +226,8 @@ export default function ReviewPage() {
         <Button variant="outline" asChild>
           <Link href="/airdrops/new/configuration">Back</Link>
         </Button>
-        <Button
-          onClick={handleCreateAirdrop}
-          className="bg-primary hover:bg-primary/90 w-full md:w-auto"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating...
-            </>
-          ) : (
-            "Create Airdrop"
-          )}
+        <Button onClick={handleCreateAirdrop} disabled={isSubmitting} className="w-full md:w-auto">
+          {isSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</> : "Create Airdrop"}
         </Button>
       </div>
     </div>

@@ -1,81 +1,88 @@
 "use client"
+
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+import { useWallet } from "@solana/wallet-adapter-react"
+import Image from "next/image"
+import { Copy, ExternalLink, ArrowLeft } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Copy, ExternalLink, ArrowLeft } from "lucide-react"
-import { useWallet } from "@solana/wallet-adapter-react"
-import { useEffect, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
+
 import ConnectWalletButton from "@/components/ConnectWalletButton"
-import { useParams } from "next/navigation"
 import { getTokenMetadata } from "@/lib/token-utils"
 import { getDistributor } from "@/lib/streamflow-client"
 import { AirdropItem } from "@/types/airdrop"
 import { DistributorInfo, TokenMetadata } from "@/types/metadata"
-import Image from "next/image"
-import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AirdropDetailPage() {
-  const params = useParams()
-  const { airdropId } = params
+  const { airdropId } = useParams()
   const { connected } = useWallet()
+
   const [mounted, setMounted] = useState(false)
   const [airdropData, setAirdropData] = useState<AirdropItem | null>(null)
   const [tokenMetadata, setTokenMetadata] = useState<TokenMetadata | null>(null)
   const [distributor, setDistributor] = useState<DistributorInfo | null>(null)
   const [loading, setLoading] = useState(true)
-  console.log(airdropId, "airdropId")
-  console.log(tokenMetadata, "tokenMetadata")
-  console.log(distributor, "distributor")
-  console.log(airdropData, "airdropData")
+
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    setLoading(true)
-    fetchAirdropData()
+    if (!airdropId) return
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/airdrops/${airdropId}`)
+        const data = await res.json()
+        setAirdropData(data)
+      } catch (err) {
+        console.error("Failed to fetch airdrop data:", err)
+      }
+    }
+    fetchData()
   }, [airdropId])
 
   useEffect(() => {
-    if (airdropData) {
-      fetchTokenMetadata()
-      fetchDistributor()
-      setLoading(false)
+    if (!airdropData) return
+
+    const loadDetails = async () => {
+      try {
+        const [metadata, distributorInfo] = await Promise.all([
+          getTokenMetadata(airdropData.mint),
+          getDistributor(airdropData.address),
+        ])
+        setTokenMetadata(metadata)
+        setDistributor(distributorInfo)
+      } catch (err) {
+        console.error("Failed to fetch metadata or distributor:", err)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    loadDetails()
   }, [airdropData])
 
-  const fetchAirdropData = async () => {
-    const response = await fetch(`/api/airdrops/${airdropId}`)
-    const data = await response.json()
-    setAirdropData(data)
-  }
+  const isLoading = loading || !tokenMetadata || !distributor || !airdropData
 
-  const fetchTokenMetadata = async () => {
-    if (!airdropData?.mint) return;
-    const response = await getTokenMetadata(airdropData.mint)
-    setTokenMetadata(response)
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(window.location.href).catch(() => {})
   }
-
-  const fetchDistributor = async () => {
-    if (!airdropData?.address) return;
-    const response = await getDistributor(airdropData.address)
-    setDistributor(response)
-  }
-
-  const isLoading = loading || !tokenMetadata || !distributor || !airdropData;
 
   if (isLoading) {
     return (
       <div className="container py-6 space-y-6">
-        <div>
-          <Button variant="outline" size="sm" asChild className="gap-2">
-            <Link href="/airdrops">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Airdrops
-            </Link>
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" asChild className="gap-2">
+          <Link href="/airdrops">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Airdrops
+          </Link>
+        </Button>
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="space-y-2">
@@ -84,13 +91,11 @@ export default function AirdropDetailPage() {
               <Skeleton className="h-8 w-32" />
               <Skeleton className="h-6 w-20" />
             </div>
-
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <Skeleton className="h-5 w-48" />
               <Skeleton className="h-5 w-48" />
             </div>
           </div>
-
           <Skeleton className="h-9 w-32" />
         </div>
 
@@ -105,49 +110,41 @@ export default function AirdropDetailPage() {
           ))}
         </div>
       </div>
-    );
+    )
   }
 
   if (!airdropData) {
     return <div className="container py-6">Airdrop not found</div>
   }
 
-  const copyToClipboard = () => {
-    const url = window.location.href
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-      })
-      .catch(() => {
-      })
-  }
+  const decimals = tokenMetadata?.decimals || 9
 
   return (
     <div className="container py-6 space-y-6">
-      <div>
-        <Button variant="outline" size="sm" asChild className="gap-2">
-          <Link href="/airdrops">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Airdrops
-          </Link>
-        </Button>
-      </div>
+      <Button variant="outline" size="sm" asChild className="gap-2">
+        <Link href="/airdrops">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Airdrops
+        </Link>
+      </Button>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-              {tokenMetadata?.image ?
+              {tokenMetadata.image ? (
                 <Image
                   src={tokenMetadata.image}
                   alt={tokenMetadata.symbol}
                   width={32}
                   height={32}
                   className="rounded-full"
-                /> :
-                <span className="text-sm">?</span>}
+                />
+              ) : (
+                <span className="text-sm">?</span>
+              )}
             </div>
-            <h1 className="text-2xl font-bold">{tokenMetadata?.name}</h1>
+            <h1 className="text-2xl font-bold">{tokenMetadata.name}</h1>
             <Badge variant="outline">Solana</Badge>
           </div>
 
@@ -155,7 +152,7 @@ export default function AirdropDetailPage() {
             <div className="flex items-center gap-1">
               <span className="text-muted-foreground">Token:</span>
               <Link href="#" className="flex items-center hover:underline">
-                {airdropData?.mint}
+                {airdropData.mint}
                 <ExternalLink className="ml-1 h-3 w-3" />
               </Link>
             </div>
@@ -163,19 +160,17 @@ export default function AirdropDetailPage() {
             <div className="flex items-center gap-1">
               <span className="text-muted-foreground">Sender:</span>
               <Link href="#" className="flex items-center hover:underline">
-                {airdropData?.sender}
+                {airdropData.sender}
                 <ExternalLink className="ml-1 h-3 w-3" />
               </Link>
             </div>
           </div>
         </div>
 
-        <div>
-          <Button variant="outline" size="sm" onClick={copyToClipboard}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copy Link
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={copyToClipboard}>
+          <Copy className="mr-2 h-4 w-4" />
+          Copy Link
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -183,8 +178,8 @@ export default function AirdropDetailPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground">Airdrop Type</div>
             <div className="text-2xl font-bold mt-1">
-              <Badge variant={distributor?.endTs === distributor?.startTs ? "default" : "secondary"} className="text-sm">
-                {distributor?.endTs === distributor?.startTs ? "Instant" : "Vested"}
+              <Badge variant={distributor.endTs === distributor.startTs ? "default" : "secondary"} className="text-sm">
+                {distributor.endTs === distributor.startTs ? "Instant" : "Vested"}
               </Badge>
             </div>
           </CardContent>
@@ -192,8 +187,8 @@ export default function AirdropDetailPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Recipients for {tokenMetadata?.name}</div>
-            <div className="text-2xl font-bold mt-1">{distributor?.numNodesClaimed}</div>
+            <div className="text-sm text-muted-foreground">Recipients for {tokenMetadata.name}</div>
+            <div className="text-2xl font-bold mt-1">{distributor.numNodesClaimed}</div>
           </CardContent>
         </Card>
 
@@ -201,7 +196,7 @@ export default function AirdropDetailPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground">Recipients Claimed / Total</div>
             <div className="text-2xl font-bold mt-1">
-              {distributor?.numNodesClaimed} / {airdropData?.maxNumNodes}
+              {distributor.numNodesClaimed} / {airdropData.maxNumNodes}
             </div>
           </CardContent>
         </Card>
@@ -210,7 +205,7 @@ export default function AirdropDetailPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground">Amount Claimed / Total</div>
             <div className="text-2xl font-bold mt-1">
-              {Number(distributor?.totalAmountClaimed) / Math.pow(10, tokenMetadata?.decimals || 9)} / {Number(airdropData?.maxTotalClaim) / Math.pow(10, tokenMetadata?.decimals || 9)}
+              {(distributor.totalAmountClaimed / Math.pow(10, decimals)).toFixed(4)} / {(Number(airdropData.maxTotalClaim) / Math.pow(10, decimals)).toFixed(4)}
             </div>
           </CardContent>
         </Card>

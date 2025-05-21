@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useAirdrop } from "@/contexts/airdrop-context"
 import WalletNotConnected from "@/components/wallet-not-connected"
-import { Connection, clusterApiUrl, PublicKey,type GetVersionedTransactionConfig } from '@solana/web3.js';
+import { Connection, clusterApiUrl, PublicKey, type GetVersionedTransactionConfig } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token"
 import { getTokenMetadata } from "@/lib/token-utils"
 import Image from "next/image"
@@ -58,7 +58,7 @@ export default function ConfigurationPage() {
   const [distributionEndTime, setDistributionEndTime] = useState(airdropData.distributionEndTime || "12:00")
   const [unlockInterval, setUnlockInterval] = useState(airdropData.unlockInterval || "daily")
   const [distributionEndTimeError, setDistributionEndTimeError] = useState<string | null>(null)
-  
+
 
   useEffect(() => {
     setIsClient(true)
@@ -117,7 +117,7 @@ export default function ConfigurationPage() {
     fetchWalletTokens()
   }, [connected, publicKey, token])
 
- 
+
   async function fetchSPLTokens(connection: Connection, publicKey: PublicKey): Promise<Token[]> {
     try {
 
@@ -184,11 +184,11 @@ export default function ConfigurationPage() {
 
   const validateEndDateTime = (date: Date | undefined, time: string, interval: string) => {
     if (!date) return null
-    
+
     const [hours, minutes] = time.split(':').map(Number)
     const endDateTime = new Date(date)
     endDateTime.setHours(hours, minutes)
-    
+
     if (endDateTime <= new Date()) {
       return "End time must be in the future"
     }
@@ -217,7 +217,7 @@ export default function ConfigurationPage() {
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
-    
+
     if (hours === 0) {
       return `${minutes} minute${minutes !== 1 ? 's' : ''}`
     }
@@ -249,8 +249,8 @@ export default function ConfigurationPage() {
   }
 
   const isFormValid =
-    title.trim() !== "" && 
-    airdropData.file !== null && 
+    title.trim() !== "" &&
+    airdropData.file !== null &&
     (!isVested || (isVested && distributionEndDate !== undefined && !distributionEndTimeError))
 
   if (!isClient) return null
@@ -271,7 +271,7 @@ export default function ConfigurationPage() {
   const renderTokenIcon = (t: Token) => {
     return (
       <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-foreground">
-         {t.icon ? <Image src={t.icon} alt={t.symbol} width={24} height={24}  className="rounded-full"/> : <span className="text-sm">?</span>}
+        {t.icon ? <Image src={t.icon} alt={t.symbol} width={24} height={24} className="rounded-full" /> : <span className="text-sm">?</span>}
       </div>
     )
   }
@@ -284,7 +284,7 @@ export default function ConfigurationPage() {
       </div>
 
       <form className="space-y-8">
-        
+
         <div className="space-y-2">
           <Label htmlFor="title">Title</Label>
           <Input
@@ -297,7 +297,7 @@ export default function ConfigurationPage() {
 
         <div className="space-y-2">
           <Label htmlFor="token">Token</Label>
-          <Select 
+          <Select
             value={token}
             onValueChange={(selectedAddress) => {
               setToken(selectedAddress);
@@ -309,7 +309,7 @@ export default function ConfigurationPage() {
                   tokenDecimals: selectedToken.decimals
                 });
               }
-            }} 
+            }}
             disabled={isLoadingTokens}
           >
             <SelectTrigger id="token" className="w-full">
