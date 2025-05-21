@@ -88,7 +88,7 @@ export default function ReviewPage() {
       })
 
       const now = Math.floor(Date.now() / 1000)
-      const start = now + 300
+      const start = now + 10
       let end = start
 
       if (airdropData.type === "vested" && airdropData.distributionEndDate) {
