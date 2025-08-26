@@ -60,13 +60,9 @@ This project uses the Streamflow JS SDK for airdrop management. The SDK provides
 ```bash
 # Install Stream Protocol SDK
 npm install @streamflow/stream
-# or
-yarn add @streamflow/stream
 
 # Install Distributor Protocol SDK
 npm install @streamflow/common @streamflow/distributor
-# or
-yarn add @streamflow/common @streamflow/distributor
 ```
 
 ## Prerequisites
@@ -80,7 +76,7 @@ yarn add @streamflow/common @streamflow/distributor
 
 1. Clone the repository:
 ```bash
-git clone [repository-url]
+git clone https://github.com/toplustar/solana-airdrop
 cd airflux
 ```
 
